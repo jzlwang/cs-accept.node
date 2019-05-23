@@ -56,7 +56,7 @@ function setupSchema() {
         }
     }) ;
 }
-    
+
 // Callback functions
 
 function handleDBerror(err) {
@@ -112,7 +112,7 @@ function handleRiakcsConnect(message, err) {
     }
 }
 
-        
+
 
 // Helper functions
 
@@ -127,6 +127,30 @@ function doStatus(request, response) {
         response.end(JSON.stringify({"dbStatus": dbConnectState,
                                      "tls-cipher": results[0]["Value"]})) ;
     }) ;
+}
+
+function doReplicationStatus(request, response) {
+  dbClient.query("SHOW SLAVE STATUS", function (err, results, fields) {
+    console.log("The results are: " + results) ;
+    if (results === undefined || results.length == 0) {
+      console.log("HEYO! I'm a leader!") ;
+      dbClient.query("SHOW SLAVE HOSTS", function (err, results, fields) {
+        console.log("Leader slaves: " + results) ;
+        response.end(JSON.stringify({"Server_id": results[0][Server_id],
+                                      "Host": results[0][Host],
+                                      "Port": results[0][Port],
+                                      "Master_id": results[0][Master_id],
+                                      "Slave_UUID": results[0][Slave_UUID]})) ;
+      }) ;
+    } else {
+      response.end(JSON.stringify({"Slave_IO_State": results[0]["Slave_IO_State"],
+                                    "Master_Host": results[0]["Master_Host"],
+                                    "Master_Port": results[0]["Master_Port"],
+                                    "Slave_IO_Running": results[0]["Slave_IO_Running"],
+                                    "Slave_SQL_Running": results[0]["Slave_SQL_Running"],
+                                    "Master_UUID": results[0]["Master_UUID"]})) ;
+    }
+  }) ;
 }
 
 function MySQLConnect() {
@@ -174,7 +198,7 @@ function dbError(response, error) {
     console.error("ERROR getting values: " + error) ;
     response.end("ERROR getting values: " + error) ;
 }
-    
+
 function errorDbNotReady(response) {
     errHTML = "<title>Error</title><H1>Error</H1>\n"
     errHTML += "<p>Database info is not set or DB is not ready<br>\n" ;
@@ -216,6 +240,14 @@ function dispatchApi(request, response, method, query) {
             response.end(data) ;
         }
         break ;
+    case "replication-status":
+      if (dbConnectState) {
+        doReplicationStatus(request, response) ;
+      } else {
+        data += "I'm sorry, Dave, I can't do that. No connection to database." ;
+        response.end(data) ;
+      }
+      break ;
     case "read":
         if (query["table"]) {
             util.log("Received request to read table: " + query["table"]) ;
@@ -229,7 +261,7 @@ function dispatchApi(request, response, method, query) {
         response.writeHead(404) ;
         response.end(false) ;
     }
-    
+
 }
 
 function requestHandler(request, response) {
@@ -263,6 +295,14 @@ function requestHandler(request, response) {
             response.end(data) ;
         }
         break ;
+    case "replication-status":
+        if (dbConnectState) {
+            doReplicationStatus(request, response) ;
+        } else {
+            data += "I'm sorry, Dave, I can't do that. No connection to database." ;
+            response.end(data) ;
+        }
+      break ;
     case "ping":
         if (dbConnectState) {
             doPing(request, response) ;
@@ -294,7 +334,7 @@ if ("mysql" == activateState) {
 } else if ("riakcs" != activateState) {
     console.error("Error: Not set up to use either MySQL or RiakCS as a backing store.") ;
 }
-    
+
 var staticServer = serveStatic("static") ;
 monitorServer = http.createServer(function(req, res) {
     var done = finalhandler(req, res) ;
