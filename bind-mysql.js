@@ -1,7 +1,7 @@
 module.exports.getMySQLCreds = function(service) {
 
     var mysql_creds = {} ;
-    var service = undefined ; 
+    var service = undefined ;
     if (process.env.VCAP_SERVICES && Object.keys(process.env.VCAP_SERVICES).length) {
         var vcap_services = JSON.parse(process.env.VCAP_SERVICES) ;
         if (vcap_services['p.mysql']) {

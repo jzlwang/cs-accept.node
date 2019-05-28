@@ -4,5 +4,3 @@ applications:
   buildpack: nodejs_buildpack
   memory: 128M
   services:
-  - acceptDB
-

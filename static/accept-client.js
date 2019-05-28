@@ -1,9 +1,12 @@
 // Accept Client - code to access the cs-accept server
 
 var dbStatus = undefined ;
+var replicationRole = undefined ;
+var followers = undefined ;
 
 window.onload = function () {
     getDBstatus() ;
+    getReplicationStatus() ;
 }
 
 function getDBstatus() {
@@ -22,9 +25,37 @@ function getDBstatus() {
     request.send(null) ;
 }
 
-function displayDBstatus() {
+function getReplicationStatus() {
+  var url = document.baseURI + "json/replication-status" ;
+  console.log("Replication URL: " + url) ;
+  var request = new XMLHttpRequest() ;
+  request.onload = function () {
+    if (200 == request.status) {
+      q = JSON.parse(request.responseText) ;
+      replicationRole = q.replicationRole ;
+      followers = q.followers ;
+      displayReplicationStatus() ;
+    }
+  } ;
+  request.open("GET", url) ;
+  request.send(null) ;
+}
+
+function displayDBstatus () {
     var span = document.getElementById("dbstatus") ;
     span.innerHTML = dbStatus ;
+}
+
+function displayReplicationStatus () {
+  document.getElementById("replication-role").innerHTML = replicationRole ;
+  if (followers !== undefined) {
+    for (i = 0 ; i < followers.length ; i++) {
+      var li = document.createElement("LI") ;
+      var follower = document.createTextNode(JSON.stringify(followers[i])) ;
+      li.appendChild(follower) ;
+      document.getElementById("followers").appendChild(li) ;
+    }
+  }
 }
 
 function getCurrentData() {

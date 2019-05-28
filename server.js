@@ -24,6 +24,7 @@ mysql_data_service = undefined ;
 var mysql_creds = {} ;
 var vcap_services = undefined ;
 var dbClient = undefined ;
+var dbAdminClient = undefined ;
 var dbConnectState = Boolean(false) ;
 var dbConnectTimer = undefined ;
 var riakcs_credentials = undefined ;
@@ -61,7 +62,7 @@ function setupSchema() {
 
 function handleDBerror(err) {
     if (err) {
-        console.warn("Issue with database, " + err.code + ". Attempting to reconnect every 1 second.")
+        console.warn("Issue with database, " + err.code + ". Attempting to reconnect every 1 second.") ;
         setTimeout(MySQLConnect, 1000) ;
     }
 }
@@ -89,6 +90,7 @@ function handleDBping(request, response, err) {
         util.log("MySQL Connection error: " + err) ;
         response.end("MySQL connection error: " + err) ;
         dbClient.destroy() ;
+        dbAdminClient.destroy() ;
         MySQLConnect() ;
     } else {
         response.end("MySQL ping successful.") ;
@@ -112,8 +114,6 @@ function handleRiakcsConnect(message, err) {
     }
 }
 
-
-
 // Helper functions
 
 function doPing(request, response) {
@@ -130,25 +130,12 @@ function doStatus(request, response) {
 }
 
 function doReplicationStatus(request, response) {
-  dbClient.query("SHOW SLAVE STATUS", function (err, results, fields) {
-    console.log("The results are: " + results) ;
+  dbAdminClient.query("SHOW SLAVE HOSTS", function (err, results, fields) {
     if (results === undefined || results.length == 0) {
-      console.log("HEYO! I'm a leader!") ;
-      dbClient.query("SHOW SLAVE HOSTS", function (err, results, fields) {
-        console.log("Leader slaves: " + results) ;
-        response.end(JSON.stringify({"Server_id": results[0][Server_id],
-                                      "Host": results[0][Host],
-                                      "Port": results[0][Port],
-                                      "Master_id": results[0][Master_id],
-                                      "Slave_UUID": results[0][Slave_UUID]})) ;
-      }) ;
+      response.end(JSON.stringify({"replicationRole": "Follower"})) ;
     } else {
-      response.end(JSON.stringify({"Slave_IO_State": results[0]["Slave_IO_State"],
-                                    "Master_Host": results[0]["Master_Host"],
-                                    "Master_Port": results[0]["Master_Port"],
-                                    "Slave_IO_Running": results[0]["Slave_IO_Running"],
-                                    "Slave_SQL_Running": results[0]["Slave_SQL_Running"],
-                                    "Master_UUID": results[0]["Master_UUID"]})) ;
+      response.end(JSON.stringify({"replicationRole": "Leader",
+                                    "followers": results})) ;
     }
   }) ;
 }
@@ -162,14 +149,25 @@ function MySQLConnect() {
             port : mysql_creds["port"],
             database : mysql_creds["database"]
         } ;
+        adminClientConfig = {
+            host : mysql_creds["host"],
+            user : "ADMIN", // FIXME: username with admin privileges
+            password : "PASSWORD", // FIXME: password
+            port : 6033,
+            database : mysql_creds["database"]
+        } ;
         if (mysql_creds["ca_certificate"]) {
             console.log("CA Cert detected; using TLS");
             clientConfig["ssl"] = { ca : mysql_creds["ca_certificate"] } ;
+            adminClientConfig["ssl"] = { ca : mysql_creds["ca_certificate"] } ;
         }
         dbClient = mysql.createConnection( clientConfig ) ;
         dbClient.connect(handleDBConnect) ;
+        dbAdminClient = mysql.createConnection(adminClientConfig) ;
+        dbAdminClient.connect(handleDBConnect) ;
     } else {
         dbClient = undefined ;
+        dbAdminClient = undefined ;
     }
 }
 

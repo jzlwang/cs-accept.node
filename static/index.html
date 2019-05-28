@@ -6,8 +6,13 @@
     <link rel="stylesheet" href="tables.css">
   </head>
   <body>
-    <h1>Core Services Acceptance</h1>
-    <p>Current DB status: <span id="dbstatus"></span></p>
+    <h2>Core Services Acceptance</h2>
+    <p><b>Current DB status:</b> <span id="dbstatus"></span></p>
+    <p><b>Replication Role:</b> <span id="replication-role"></span></p>
+    <p><b>Followers:</b>
+      <ul id="followers">
+      </ul>
+    </p>
     <table id="dataTable" border=1>
       <tr><th>Key</th><th>Value</th></tr>
       <tbody id="dataBody">
